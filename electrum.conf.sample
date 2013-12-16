@@ -2,7 +2,7 @@
 # Settings defined here are shared across wallets
 #
 # copy this file to /etc/electrum.conf if you want read-only settings
-# copy it into your ~/.electrum/ directory if you want global settings
+# copy it into your ~/.ltclectrum/ directory if you want global settings
 # that can be rewritten by the client
 
 [client]
