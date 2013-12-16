@@ -40,27 +40,27 @@ def print_json(obj):
 
 def user_dir():
     if "HOME" in os.environ:
-        return os.path.join(os.environ["HOME"], ".electrum")
+        return os.path.join(os.environ["HOME"], ".ltclectrum")
     elif "APPDATA" in os.environ:
-        return os.path.join(os.environ["APPDATA"], "Electrum")
+        return os.path.join(os.environ["APPDATA"], "LTCLectrum")
     elif "LOCALAPPDATA" in os.environ:
-        return os.path.join(os.environ["LOCALAPPDATA"], "Electrum")
+        return os.path.join(os.environ["LOCALAPPDATA"], "LTCLectrum")
     elif 'ANDROID_DATA' in os.environ:
-        return "/sdcard/electrum/"
+        return "/sdcard/ltclectrum/"
     else:
         #raise Exception("No home directory found in environment variables.")
         return 
 
 def appdata_dir():
-    """Find the path to the application data directory; add an electrum folder and return path."""
+    """Find the path to the application data directory; add an ltclectrum folder and return path."""
     if platform.system() == "Windows":
-        return os.path.join(os.environ["APPDATA"], "Electrum")
+        return os.path.join(os.environ["APPDATA"], "LTCLectrum")
     elif platform.system() == "Linux":
-        return os.path.join(sys.prefix, "share", "electrum")
+        return os.path.join(sys.prefix, "share", "ltclectrum")
     elif (platform.system() == "Darwin" or
           platform.system() == "DragonFly" or
 	  platform.system() == "NetBSD"):
-        return "/Library/Application Support/Electrum"
+        return "/Library/Application Support/LTCLectrum"
     else:
         raise Exception("Unknown system")
 
