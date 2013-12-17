@@ -1,0 +1,17 @@
+# If you want ltclectrum to appear in a linux app launcher ("start menu"), install this by doing:
+# sudo desktop-file-install ltclectrum.desktop
+
+[Desktop Entry]
+Comment=Lightweight Litecoin Client
+Exec=ltclectrum %u
+GenericName[en_US]=LTCLectrum
+GenericName=LTCLectrum
+Icon=/usr/share/app-install/icons/ltclectrum.png
+Name[en_US]=LTCLectrum Bitcoin Wallet
+Name=LTCLectrum Bitcoin Wallet
+Categories=Network;
+StartupNotify=false
+Terminal=false
+Type=Application
+MimeType=x-scheme-handler/litecoin
+
