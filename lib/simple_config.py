@@ -11,7 +11,7 @@ class SimpleConfig:
     """
 The SimpleConfig class is responsible for handling operations involving
 configuration files.  The constructor reads and stores the system and 
-user configurations from electrum.conf into separate dictionaries within
+user configurations from ltclectrum.conf into separate dictionaries within
 a SimpleConfig instance then reads the wallet file.
 """
     def __init__(self, options={}):
@@ -122,13 +122,13 @@ a SimpleConfig instance then reads the wallet file.
 
 
     def read_system_config(self):
-        """Parse and store the system config settings in electrum.conf into system_config[]."""
-        name = '/etc/electrum.conf'
+        """Parse and store the system config settings in ltclectrum.conf into system_config[]."""
+        name = '/etc/ltclectrum.conf'
         if os.path.exists(name):
             try:
                 import ConfigParser
             except ImportError:
-                print "cannot parse electrum.conf. please install ConfigParser"
+                print "cannot parse ltclectrum.conf. please install ConfigParser"
                 return
                 
             p = ConfigParser.ConfigParser()
@@ -141,7 +141,7 @@ a SimpleConfig instance then reads the wallet file.
 
 
     def read_user_config(self):
-        """Parse and store the user config settings in electrum.conf into user_config[]."""
+        """Parse and store the user config settings in ltclectrum.conf into user_config[]."""
         if not self.path: return
 
         path = os.path.join(self.path, "config")
