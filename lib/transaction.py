@@ -698,15 +698,16 @@ class Transaction:
 
 
     def requires_fee(self, verifier):
-        # see https://en.bitcoin.it/wiki/Transaction_fees
-        threshold = 57600000
+	# threshold = COIN      * BLOCKS_PER_DAY / TYPICAL_TX_SIZE_IN_BYTES
+	# threshold = 100000000 * 576            / 250
+        threshold = 230400000
         size = len(self.raw)/2
-        if size >= 10000: 
+        if size >= 5000: 
             return True
 
         for o in self.outputs:
             value = o[1]
-            if value < 1000000:
+            if value < 100000:#DUST_SOFT_LIMIT from original client
                 return True
         sum = 0
         for i in self.inputs:
