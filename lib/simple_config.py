@@ -10,23 +10,29 @@ from util import user_dir, print_error
 class SimpleConfig:
     """
 The SimpleConfig class is responsible for handling operations involving
-configuration files.  The constructor reads and stores the system and 
+configuration files.  The constructor reads and stores the system and
 user configurations from ltclectrum.conf into separate dictionaries within
 a SimpleConfig instance then reads the wallet file.
 """
     def __init__(self, options={}):
         self.lock = threading.Lock()
 
+        # command-line options
+        self.options_config = options
+
         # system conf, readonly
         self.system_config = {}
+
+        # init path
+        self.init_path()
+
         if options.get('portable') is not True:
             self.read_system_config()
 
         # command-line options
+        # repeated to make override in system_config impossible
         self.options_config = options
 
-        # init path
-        self.init_path()
 
         # user conf, writeable
         self.user_config = {}
@@ -58,7 +64,7 @@ a SimpleConfig instance then reads the wallet file.
         # portable wallet: use the same directory for wallet and headers file
         #if options.get('portable'):
         #    self.wallet_config['blockchain_headers_path'] = os.path.dirname(self.path)
-            
+
     def set_key(self, key, value, save = True):
         # find where a setting comes from and save it there
         if self.options_config.get(key) is not None:
@@ -73,7 +79,7 @@ a SimpleConfig instance then reads the wallet file.
 
             with self.lock:
                 self.user_config[key] = value
-                if save: 
+                if save:
                     self.save_user_config()
 
 
@@ -86,7 +92,7 @@ a SimpleConfig instance then reads the wallet file.
         if self.options_config.has_key(key) and self.options_config.get(key) is not None:
             out = self.options_config.get(key)
 
-        # 2. user configuration 
+        # 2. user configuration
         elif self.user_config.has_key(key):
             out = self.user_config.get(key)
 
@@ -123,21 +129,22 @@ a SimpleConfig instance then reads the wallet file.
 
     def read_system_config(self):
         """Parse and store the system config settings in ltclectrum.conf into system_config[]."""
-        name = '/etc/ltclectrum.conf'
-        if os.path.exists(name):
-            try:
-                import ConfigParser
-            except ImportError:
-                print "cannot parse ltclectrum.conf. please install ConfigParser"
-                return
-                
-            p = ConfigParser.ConfigParser()
-            p.read(name)
-            try:
-                for k, v in p.items('client'):
-                    self.system_config[k] = v
-            except ConfigParser.NoSectionError:
-                pass
+        names = ['/etc/ltclectrum.conf',os.path.join(self.path, "ltclectrum.conf")] if self.path else ['/etc/ltclectrum.conf']
+        for name in names:
+            if os.path.exists(name):
+                try:
+                    import ConfigParser
+                except ImportError:
+                    print "cannot parse ltclectrum.conf. please install ConfigParser"
+                    return
+
+                p = ConfigParser.ConfigParser()
+                p.read(name)
+                try:
+                    for k, v in p.items('client'):
+                        self.system_config[k] = v
+                except ConfigParser.NoSectionError:
+                    pass
 
 
     def read_user_config(self):

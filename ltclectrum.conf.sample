@@ -7,6 +7,8 @@
 
 [client]
 server = l.microgod.pl:60001:t
+# WARNING: to run on testnet You need also to set addrtype=addrtype_litecoin_testnet in lib/bitcoin.py
+testnet = no
 proxy = None
 gap_limit = 5
 # booleans use python syntax
