@@ -35,8 +35,9 @@ class Blockchain(threading.Thread):
         self.headers_url = 'http://headers.electrum.org/blockchain_headers'
         self.set_local_height()
         self.queue = Queue.Queue()
+        self.testnet = config.get('testnet')=='yes'
 
-    
+
     def height(self):
         return self.local_height
 
@@ -68,7 +69,7 @@ class Blockchain(threading.Thread):
 
             i, header = result
             if not header: continue
-            
+
             height = header.get('block_height')
 
             if height <= self.local_height:
@@ -83,10 +84,10 @@ class Blockchain(threading.Thread):
                 chain = self.get_chain( i, header )
 
                 # skip that server if the result is not consistent
-                if not chain: 
+                if not chain:
                     print_error('e')
                     continue
-                
+
                 # verify the chain
                 if self.verify_chain( chain ):
                     print_error("height:", height, i.server)
@@ -101,13 +102,13 @@ class Blockchain(threading.Thread):
             self.network.new_blockchain_height(height, i)
 
 
-                    
-            
+
+
     def verify_chain(self, chain):
 
         first_header = chain[0]
         prev_header = self.read_header(first_header.get('block_height') -1)
-        
+
         for header in chain:
 
             height = header.get('block_height')
@@ -117,8 +118,19 @@ class Blockchain(threading.Thread):
             _hash = self.hash_headerScrypt(header)
             try:
                 assert prev_hash == header.get('prev_block_hash')
-                assert bits == header.get('bits')
-                assert int('0x'+_hash,16) < target
+                if not self.testnet:
+                    assert bits == header.get('bits')
+                    assert int('0x'+_hash,16) < target
+                else:
+                    age = (header.get('timestamp') - prev_header.get('timestamp') ) if (height%2016)!=0 else 0
+                    if age > 2 * 2.5 *60:
+                        # in testnet blocks older than 5 minutes have minimal difficulty
+                        assert self.max_bits == header.get('bits')
+                        assert int('0x'+_hash,16) < self.max_target
+                    else:
+                        assert bits == header.get('bits')
+                        assert int('0x'+_hash,16) < target
+
             except Exception:
                 return False
 
@@ -133,7 +145,8 @@ class Blockchain(threading.Thread):
         height = index*2016
         num = len(data)/80
 
-        if index == 0:  
+        prev_header = None
+        if index == 0:
             previous_hash = ("0"*64)
         else:
             prev_header = self.read_header(index*2016-1)
@@ -148,16 +161,28 @@ class Blockchain(threading.Thread):
             header = self.header_from_string(raw_header)
             _hash = self.hash_headerScrypt(header)
             assert previous_hash == header.get('prev_block_hash') , "incorrect previous_hash "
-            assert bits == header.get('bits'), "incorrect bits at height: "+str(height)+" i="+str(i)+"; is: "+hex(bits)+" should be: "+hex(header.get('bits'))
-            assert int('0x'+_hash,16) < target, "scrypt hash doesn't hit target"
+            if not self.testnet:
+                assert bits == header.get('bits'), "incorrect bits at height: "+str(height)+" i="+str(i)+"; is: "+hex(bits)+" should be: "+hex(header.get('bits'))
+                assert int('0x'+_hash,16) < target, "scrypt hash doesn't hit target"
+            else:#testnet
+                age = (header.get('timestamp') - prev_header.get('timestamp') ) if i!=0 else 0
+                if age > 2 * 2.5 *60:
+                    # in testnet blocks older than 5 minutes have minimal difficulty
+                    assert self.max_bits == header.get('bits'), "incorrect bits at height: "+str(height)+" i="+str(i)+"; is: "+hex(self.max_bits)+" should be: "+hex(header.get('bits'))
+                    assert int('0x'+_hash,16) < self.max_target, "scrypt hash doesn't hit target"
+                else:
+                    assert bits == header.get('bits'), "incorrect bits at height: "+str(height)+" i="+str(i)+"; is: "+hex(bits)+" should be: "+hex(header.get('bits'))
+                    assert int('0x'+_hash,16) < target, "scrypt hash doesn't hit target"
 
+
+            # regular, bitcoin-like hash
             previous_hash = self.hash_header(header)
-            previous_header = header
+            prev_header = header
 
         self.save_chunk(index, data)
         print_error("validated chunk %d"%height)
 
-        
+
 
     def header_to_string(self, res):
         s = int_to_hex(res.get('version'),4) \
@@ -193,7 +218,7 @@ class Blockchain(threading.Thread):
         filename = self.path()
         if os.path.exists(filename):
             return
-        
+
         try:
             import urllib, socket
             socket.setdefaulttimeout(30)
@@ -241,16 +266,17 @@ class Blockchain(threading.Thread):
             f.close()
             if len(h) == 80:
                 h = self.header_from_string(h)
-                return h 
+                return h
 
 
+    max_target = 0x00000FFFFF000000000000000000000000000000000000000000000000000000
+    max_bits = 0x1e0fffff
     def get_target(self, index, chain=[]):
 
-        max_target = 0x00000FFFFF000000000000000000000000000000000000000000000000000000
         # max_target differs from initial blocks' target for Litecoin
         if index == 0: return 0x1e0ffff0, 0x00000FFFF0000000000000000000000000000000000000000000000000000000
 
-        # we take last block from difficulty shift before (last block of index-2),
+        # we take last block from index-2 shift,
         # except for first difficulty shift after genesis
         oneMoreBack=1 if index>1 else 0
         first = self.read_header((index-1)*2016-oneMoreBack)
@@ -259,13 +285,17 @@ class Blockchain(threading.Thread):
             for h in chain:
                 if h.get('block_height') == index*2016-1:
                     last = h
- 
+
         nActualTimespan = last.get('timestamp') - first.get('timestamp')
         nTargetTimespan = 14*24*60*60/4
         nActualTimespan = max(nActualTimespan, nTargetTimespan/4)
         nActualTimespan = min(nActualTimespan, nTargetTimespan*4)
 
-        bits = last.get('bits') 
+        # the following should be incorrect for testnet, but it's correct
+        # (bug in testnet blockchain)
+        bits = last.get('bits')
+        # this should be correct:
+        #bits = (last if not self.testnet else self.read_header((index-1)*2016)).get('bits')
         # convert to bignum
         MM = 256*256*256
         a = bits%MM
@@ -274,8 +304,8 @@ class Blockchain(threading.Thread):
         target = (a) * pow(2, 8 * (bits/MM - 3))
 
         # new target
-        new_target = min( max_target, (target * nActualTimespan)/nTargetTimespan )
-        
+        new_target = min( self.max_target, (target * nActualTimespan)/nTargetTimespan )
+
         # convert it to bits
         c = ("%064X"%new_target)[2:]
         i = 31
@@ -284,7 +314,7 @@ class Blockchain(threading.Thread):
             i -= 1
 
         c = int('0x'+c[0:6],16)
-        if c > 0x800000: 
+        if c > 0x800000:
             c /= 256
             i += 1
 
@@ -304,7 +334,7 @@ class Blockchain(threading.Thread):
                 print_error('timeout')
                 continue
 
-            if not ir: 
+            if not ir:
                 continue
 
             i, r = ir
@@ -320,7 +350,7 @@ class Blockchain(threading.Thread):
 
             if method == 'blockchain.block.get_header':
                 return result
-                
+
 
 
     def get_chain(self, interface, final_header):
