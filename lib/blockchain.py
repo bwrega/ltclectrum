@@ -114,7 +114,7 @@ class Blockchain(threading.Thread):
 
             prev_hash = self.hash_header(prev_header)
             bits, target = self.get_target(height/2016, chain)
-            _hash = self.hash_header(header)
+            _hash = self.hash_headerScrypt(header)
             try:
                 assert prev_hash == header.get('prev_block_hash')
                 assert bits == header.get('bits')
@@ -146,13 +146,13 @@ class Blockchain(threading.Thread):
             height = index*2016 + i
             raw_header = data[i*80:(i+1)*80]
             header = self.header_from_string(raw_header)
-            _hash = self.hash_header(header)
-            assert previous_hash == header.get('prev_block_hash')
-            assert bits == header.get('bits')
-            assert int('0x'+_hash,16) < target
+            _hash = self.hash_headerScrypt(header)
+            assert previous_hash == header.get('prev_block_hash') , "incorrect previous_hash "
+            assert bits == header.get('bits'), "incorrect bits at height: "+str(height)+" i="+str(i)+"; is: "+hex(bits)+" should be: "+hex(header.get('bits'))
+            assert int('0x'+_hash,16) < target, "scrypt hash doesn't hit target"
 
+            previous_hash = self.hash_header(header)
             previous_header = header
-            previous_hash = _hash 
 
         self.save_chunk(index, data)
         print_error("validated chunk %d"%height)
@@ -180,6 +180,9 @@ class Blockchain(threading.Thread):
         h['nonce'] = hex_to_int(s[76:80])
         return h
 
+    def hash_headerScrypt(self, header):
+        import ltc_scrypt
+        return rev_hex(ltc_scrypt.getPoWHash(self.header_to_string(header).decode('hex')).encode('hex'))
     def hash_header(self, header):
         return rev_hex(Hash(self.header_to_string(header).decode('hex')).encode('hex'))
 
@@ -243,10 +246,14 @@ class Blockchain(threading.Thread):
 
     def get_target(self, index, chain=[]):
 
-        max_target = 0x00000000FFFF0000000000000000000000000000000000000000000000000000
-        if index == 0: return 0x1d00ffff, max_target
+        max_target = 0x00000FFFFF000000000000000000000000000000000000000000000000000000
+        # max_target differs from initial blocks' target for Litecoin
+        if index == 0: return 0x1e0ffff0, 0x00000FFFF0000000000000000000000000000000000000000000000000000000
 
-        first = self.read_header((index-1)*2016)
+        # we take last block from difficulty shift before (last block of index-2),
+        # except for first difficulty shift after genesis
+        oneMoreBack=1 if index>1 else 0
+        first = self.read_header((index-1)*2016-oneMoreBack)
         last = self.read_header(index*2016-1)
         if last is None:
             for h in chain:
@@ -381,7 +388,7 @@ class Blockchain(threading.Thread):
             index = params[0]
             try:
                 self.verify_chunk(index, result)
-            except Exception:
+            except Exception as e:
                 print_error('Verify chunk failed!!')
                 return False
             requested_chunks.remove(index)
