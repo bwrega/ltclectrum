@@ -22,6 +22,7 @@ a SimpleConfig instance then reads the wallet file.
 
         # system conf, readonly
         self.system_config = {}
+        self.system_config['testnet'] = "no"
 
         # init path
         self.init_path()
