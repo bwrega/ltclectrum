@@ -98,7 +98,10 @@ class WalletStorage:
         if not os.path.exists(dirpath):
             os.mkdir(dirpath)
 
-        new_path = os.path.join(config.path, "wallets", "default_wallet")
+        if config.get('testnet')=='yes':
+            new_path = os.path.join(config.path, "wallets", "default_wallet_testnet")
+	else:
+            new_path = os.path.join(config.path, "wallets", "default_wallet")
 
         # default path in pre 1.9 versions
         old_path = os.path.join(config.path, "electrum.dat")
