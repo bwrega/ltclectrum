@@ -105,6 +105,16 @@ class Blockchain(threading.Thread):
 
 
     def verify_chain(self, chain):
+        def applyRegularChainCorrectnessPolicy(header, bits, target, _hash):
+            assert bits == header.get('bits')
+            assert int('0x' + _hash, 16) < target
+        def applyTestnetChainCorrectnessPolicy(prev_header, header, height, bits, target, _hash):
+            age = header.get('timestamp') - prev_header.get('timestamp') if (height % 2016) != 0 else 0
+            if age > 2 * 2.5 * 60: # in testnet blocks older than 5 minutes have minimal difficulty
+                assert self.max_bits == header.get('bits')
+                assert int('0x' + _hash, 16) < self.max_target
+            else:
+                applyRegularChainCorrectnessPolicy(header, bits, target, _hash)
 
         first_header = chain[0]
         prev_header = self.read_header(first_header.get('block_height') -1)
@@ -119,17 +129,9 @@ class Blockchain(threading.Thread):
             try:
                 assert prev_hash == header.get('prev_block_hash')
                 if not self.testnet:
-                    assert bits == header.get('bits')
-                    assert int('0x'+_hash,16) < target
+                    applyRegularChainCorrectnessPolicy(header, bits, target, _hash)
                 else:
-                    age = (header.get('timestamp') - prev_header.get('timestamp') ) if (height%2016)!=0 else 0
-                    if age > 2 * 2.5 *60:
-                        # in testnet blocks older than 5 minutes have minimal difficulty
-                        assert self.max_bits == header.get('bits')
-                        assert int('0x'+_hash,16) < self.max_target
-                    else:
-                        assert bits == header.get('bits')
-                        assert int('0x'+_hash,16) < target
+                    applyTestnetChainCorrectnessPolicy(prev_header, header, height, bits, target, _hash)
 
             except Exception:
                 return False
@@ -141,6 +143,16 @@ class Blockchain(threading.Thread):
 
 
     def verify_chunk(self, index, hexdata):
+        def applyRegularCorrectnessPolicy(height, bits, target, i, header, _hash):
+            assert bits == header.get('bits'), "incorrect bits at height: " + str(height) + " i=" + str(i) + "; is: " + hex(bits) + " should be: " + hex(header.get('bits'))
+            assert int('0x' + _hash, 16) < target, "scrypt hash doesn't hit target"
+        def applyTestnetCorrectnessPolicy(height, prev_header, bits, target, i, header, _hash):
+            age = header.get('timestamp') - prev_header.get('timestamp') if i != 0 else 0
+            if age > 2 * 2.5 * 60: # in testnet blocks older than 5 minutes have minimal difficulty
+                assert self.max_bits == header.get('bits'), "incorrect bits at height: " + str(height) + " i=" + str(i) + "; is: " + hex(self.max_bits) + " should be: " + hex(header.get('bits'))
+                assert int('0x' + _hash, 16) < self.max_target, "scrypt hash doesn't hit target"
+            else:
+                applyRegularCorrectnessPolicy(height, bits, target, i, header, _hash)
         data = hexdata.decode('hex')
         height = index*2016
         num = len(data)/80
@@ -162,20 +174,11 @@ class Blockchain(threading.Thread):
             _hash = self.hash_headerScrypt(header)
             assert previous_hash == header.get('prev_block_hash') , "incorrect previous_hash "
             if not self.testnet:
-                assert bits == header.get('bits'), "incorrect bits at height: "+str(height)+" i="+str(i)+"; is: "+hex(bits)+" should be: "+hex(header.get('bits'))
-                assert int('0x'+_hash,16) < target, "scrypt hash doesn't hit target"
+                applyRegularCorrectnessPolicy(height, bits, target, i, header, _hash)
             else:#testnet
-                age = (header.get('timestamp') - prev_header.get('timestamp') ) if i!=0 else 0
-                if age > 2 * 2.5 *60:
-                    # in testnet blocks older than 5 minutes have minimal difficulty
-                    assert self.max_bits == header.get('bits'), "incorrect bits at height: "+str(height)+" i="+str(i)+"; is: "+hex(self.max_bits)+" should be: "+hex(header.get('bits'))
-                    assert int('0x'+_hash,16) < self.max_target, "scrypt hash doesn't hit target"
-                else:
-                    assert bits == header.get('bits'), "incorrect bits at height: "+str(height)+" i="+str(i)+"; is: "+hex(bits)+" should be: "+hex(header.get('bits'))
-                    assert int('0x'+_hash,16) < target, "scrypt hash doesn't hit target"
+                applyTestnetCorrectnessPolicy(height, prev_header, bits, target, i, header, _hash)
 
-
-            # regular, bitcoin-like hash
+            # regular, bitcoin-like hash:
             previous_hash = self.hash_header(header)
             prev_header = header
 
