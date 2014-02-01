@@ -21,6 +21,7 @@
 
 
 from bitcoin import *
+from addrtype import *
 from util import print_error
 import time
 import struct
@@ -332,13 +333,13 @@ def get_address_from_input_script(bytes):
         match2 = [ opcodes.OP_2, opcodes.OP_PUSHDATA4, opcodes.OP_PUSHDATA4, opcodes.OP_2, opcodes.OP_CHECKMULTISIG ]
         if match_decoded(dec2, match2):
             pubkeys = [ dec2[1][1].encode('hex'), dec2[2][1].encode('hex') ]
-            return pubkeys, signatures, hash_160_to_bc_address(hash_160(redeemScript), 5)
+            return pubkeys, signatures, hash_160_to_bc_address(hash_160(redeemScript), getAddrtypeMultisig())
  
         # 2 of 3
         match2 = [ opcodes.OP_2, opcodes.OP_PUSHDATA4, opcodes.OP_PUSHDATA4, opcodes.OP_PUSHDATA4, opcodes.OP_3, opcodes.OP_CHECKMULTISIG ]
         if match_decoded(dec2, match2):
             pubkeys = [ dec2[1][1].encode('hex'), dec2[2][1].encode('hex'), dec2[3][1].encode('hex') ]
-            return pubkeys, signatures, hash_160_to_bc_address(hash_160(redeemScript), 5)
+            return pubkeys, signatures, hash_160_to_bc_address(hash_160(redeemScript), getAddrtypeMultisig())
 
     print_error("cannot find address in input script", bytes.encode('hex'))
     return [], [], "(None)"
@@ -363,10 +364,9 @@ def get_address_from_output_script(bytes):
     # p2sh
     match = [ opcodes.OP_HASH160, opcodes.OP_PUSHDATA4, opcodes.OP_EQUAL ]
     if match_decoded(decoded, match):
-        return False, hash_160_to_bc_address(decoded[1][1],5)
+        return False, hash_160_to_bc_address(decoded[1][1],getAddrtypeMultisig())
 
     return False, "(None)"
-
 
 class Transaction:
     
@@ -467,12 +467,12 @@ class Transaction:
             addr, amount = output
             s += int_to_hex( amount, 8)                              # amount
             addrtype, hash_160 = bc_address_to_hash_160(addr)
-            if addrtype == 48:  #111 for testnet
+            if addrtype == getAddrtypeNormal():
                 script = '76a9'                                      # op_dup, op_hash_160
                 script += '14'                                       # push 0x14 bytes
                 script += hash_160.encode('hex')
                 script += '88ac'                                     # op_equalverify, op_checksig
-            elif addrtype == 5: #196 for testnet
+            elif addrtype == getAddrtypeMultisig():
                 script = 'a9'                                        # op_hash_160
                 script += '14'                                       # push 0x14 bytes
                 script += hash_160.encode('hex')

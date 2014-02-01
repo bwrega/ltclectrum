@@ -21,10 +21,8 @@
 import hashlib, base64, ecdsa, re
 import hmac
 from util import print_error
+from addrtype import *
 
-addrtype_litecoin_main=48
-addrtype_litecoin_testnet=111
-addrtype=addrtype_litecoin_main
 
 def rev_hex(s):
     return s.decode('hex')[::-1].encode('hex')
@@ -131,7 +129,7 @@ def public_key_to_bc_address(public_key):
     h160 = hash_160(public_key)
     return hash_160_to_bc_address(h160)
 
-def hash_160_to_bc_address(h160, addrtype = addrtype):
+def hash_160_to_bc_address(h160, addrtype = getAddrtypeNormal()):
     vh160 = chr(addrtype) + h160
     h = Hash(vh160)
     addr = vh160 + h[0:4]
@@ -220,12 +218,12 @@ def DecodeBase58Check(psz):
 def PrivKeyToSecret(privkey):
     return privkey[9:9+32]
 
-def SecretToASecret(secret, compressed=False, addrtype=addrtype):
+def SecretToASecret(secret, compressed=False, addrtype=getAddrtypeNormal()):
     vchIn = chr((addrtype+128)&255) + secret
     if compressed: vchIn += '\01'
     return EncodeBase58Check(vchIn)
 
-def ASecretToSecret(key, addrtype=addrtype):
+def ASecretToSecret(key, addrtype=getAddrtypeNormal()):
     vch = DecodeBase58Check(key)
     if vch and vch[0] == chr((addrtype+128)&255):
         return vch[1:]

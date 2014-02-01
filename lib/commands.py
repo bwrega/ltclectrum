@@ -18,6 +18,7 @@
 
 from util import *
 from bitcoin import *
+from addrtype import getAddrtypeMultisig
 from decimal import Decimal
 import bitcoin
 from transaction import Transaction
@@ -154,7 +155,7 @@ class Commands:
     def createmultisig(self, num, pubkeys):
         assert isinstance(pubkeys, list)
         redeem_script = Transaction.multisig_script(pubkeys, num)
-        address = hash_160_to_bc_address(hash_160(redeem_script.decode('hex')), 5)
+        address = hash_160_to_bc_address(hash_160(redeem_script.decode('hex')), getAddrtypeMultisig())
         return {'address':address, 'redeemScript':redeem_script}
     
     def freeze(self,addr):
